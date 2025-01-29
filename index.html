@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Skrzynek - Pole Golfowe</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    /* Główne style */
+    body {
+      display: flex;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+
+    /* Panel boczny */
+    #sidebar {
+      width: 300px;
+      height: 100vh;
+      padding: 20px;
+      background: #2c3e50;
+      color: white;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    }
+
+    #sidebar.hidden {
+      transform: translateX(-100%);
+    }
+
+    #sidebar ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #sidebar li {
+      padding: 15px;
+      background: #34495e;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #sidebar li:hover {
+      background: #3d566e;
+    }
+
+    .coordinates {
+      font-size: 0.8em;
+      color: #95a5a6;
+    }
+
+    /* Przycisk toggle */
+    #toggle-button {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      padding: 10px 15px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+      transition: left 0.3s ease;
+    }
+
+    /* Responsywność */
+    @media (max-width: 768px) {
+      #sidebar {
+        width: 250px;
+        padding: 10px;
+      }
+      
+      #toggle-button {
+        top: 10px;
+        left: 10px;
+        padding: 8px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button id="toggle-button">☰ Menu</button>
+  <div id="sidebar">
+    <h2>Skrzynki z zaworami</h2>
+    <ul id="skrzynki-lista"></ul>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Konfiguracja
+    const MAPBOX_TOKEN = 'pk.eyJ1IjoibWF0dC10aG9ybiIsImEiOiJjbTYzanR5djUxNXpmMmpzZWxsOHNnMWNsIn0.1UP3C7P9jtNbE9APzu5U6Q'; // Zastąp swoim tokenem!
+    const INITIAL_COORDS = [59.798993, 18.774715];
+    const INITIAL_ZOOM = 15;
+
+    // Inicjalizacja mapy
+    let map;
+    function initMap() {
+      map = L.map('map').setView(INITIAL_COORDS, INITIAL_ZOOM);
+      
+      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`, {
+        attribution: '© Mapbox',
+        tileSize: 512,
+        zoomOffset: -1
+      }).addTo(map);
+
+      initUserLocation();
+      loadValveBoxes();
+    }
+
+    // Lokalizacja użytkownika
+    function initUserLocation() {
+      const userIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      map.locate({ setView: false, maxZoom: 16 });
+      
+      map.on('locationfound', e => {
+        L.marker(e.latlng, { icon: userIcon })
+          .addTo(map)
+          .bindPopup(`Twoja lokalizacja (dokładność: ${(e.accuracy/2).toFixed(1)}m)`)
+          .openPopup();
+        L.circle(e.latlng, e.accuracy/2).addTo(map);
+      });
+
+      map.on('locationerror', e => {
+        alert('Błąd lokalizacji: ' + e.message);
+      });
+    }
+
+    // Ładowanie skrzynek
+    async function loadValveBoxes() {
+      try {
+        // W praktyce dane powinny być ładowane z serwera (fetch do API)
+        const skrzynki = [
+          {
+            nazwa: "Box 1",
+            opis: "Zawór główny strefy A",
+            coords: [59.798525, 18.778091]
+          },
+          {
+            nazwa: "Box 2",
+            opis: "Zawór rezerwowy strefy B",
+            coords: [59.800526, 18.786322]
+          }
+        ];
+
+        createMarkersAndList(skrzynki);
+      } catch (error) {
+        console.error('Błąd ładowania danych:', error);
+        alert('Nie udało się załadować danych o skrzynkach!');
+      }
+    }
+
+    // Tworzenie znaczników i listy
+    function createMarkersAndList(skrzynki) {
+      const skrzynkiList = document.getElementById('skrzynki-lista');
+      const boxIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/447/447031.png',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+
+      skrzynki.forEach(skrzyneczka => {
+        // Tworzenie znacznika
+        const marker = L.marker(skrzyneczka.coords, { icon: boxIcon })
+          .addTo(map)
+          .bindPopup(`
+            <h3>${skrzyneczka.nazwa}</h3>
+            <p>${skrzyneczka.opis}</p>
+            <small>Współrzędne: ${skrzyneczka.coords.join(', ')}</small>
+          `);
+
+        // Tworzenie elementu listy
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div>
+            <strong>${skrzyneczka.nazwa}</strong>
+            <div class="coordinates">${skrzyneczka.coords.join(', ')}</div>
+          </div>
+          <span>→</span>
+        `;
+        
+        // Event listeners
+        li.addEventListener('click', () => {
+          map.flyTo(skrzyneczka.coords, 17);
+          marker.openPopup();
+        });
+
+        li.addEventListener('mouseenter', () => marker.openPopup());
+        li.addEventListener('mouseleave', () => marker.closePopup());
+
+        skrzynkiList.appendChild(li);
+      });
+    }
+
+    // Obsługa panelu bocznego
+    function setupSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const toggleButton = document.getElementById('toggle-button');
+
+      toggleButton.addEventListener('click', () => {
+        sidebar.classList.toggle('hidden');
+        toggleButton.style.left = sidebar.classList.contains('hidden') ? '10px' : '310px';
+        toggleButton.textContent = sidebar.classList.contains('hidden') ? '☰ Pokaż menu' : '☰ Ukryj menu';
+      });
+    }
+
+    // Inicjalizacja
+    document.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      setupSidebar();
+    });
+
+    // Rejestracja Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(registration => {
+            console.log('Service Worker zarejestrowany:', registration);
+          })
+          .catch(error => {
+            console.log('Błąd rejestracji Service Worker:', error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
